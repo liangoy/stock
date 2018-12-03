@@ -42,7 +42,7 @@ data = data_t - 1
 data_x, data_y = [], []
 for i in range(len(data) - long):
     data_x.append(data[i:i + long])
-    data_y.append(data[i + long, otype]-data[i+long-1][3])
+    data_y.append(data[i + long, otype] - data[i + long , 0])
 
 data_x = np.array(data_x)
 data_y = np.array(data_y)
@@ -65,8 +65,8 @@ x, y_ = iterator.get_next()
 
 x = tf.reshape(x, shape=[batch_size, x.shape[1], x.shape[2]])
 
-X=x
-#X = tf.nn.tanh(tf.layers.batch_normalization(x, training=True, scale=False, center=False, axis=[0, -1]))
+X = x
+# X = tf.nn.tanh(tf.layers.batch_normalization(x, training=True, scale=False, center=False, axis=[0, -1]))
 
 gru = GRUCell(num_units=8, reuse=tf.AUTO_REUSE, activation=tf.nn.relu,
               kernel_initializer=tf.glorot_normal_initializer(), dtype=dtype)
@@ -101,11 +101,11 @@ for i in range(10 ** 10):
     sess.run(optimizer, feed_dict={handle: train_handle})
     if not i % 100:
         loss_train, y_train, y_train_ = sess.run([loss, y, y_], feed_dict={handle: train_handle})
-        str_train=str(('train: ', loss_train, np.mean(np.abs(y_train - y_train_)) / np.mean(np.abs(y_train_)),
-              np.corrcoef(y_train, y_train_)[1, 0]))
+        str_train = str(('train: ', loss_train, np.mean(np.abs(y_train - y_train_)) / np.mean(np.abs(y_train_)),
+                         np.corrcoef(y_train, y_train_)[1, 0]))
         loss_test, y_test, y_test_ = sess.run([loss, y, y_], feed_dict={handle: test_handle})
-        str_test=str(('test:  ', loss_test, np.mean(np.abs(y_test - y_test_)) / np.mean(np.abs(y_test_)),
-              np.corrcoef(y_test, y_test_)[1, 0]))
-        print(str_train,str_test)
+        str_test = str(('test:  ', loss_test, np.mean(np.abs(y_test - y_test_)) / np.mean(np.abs(y_test_)),
+                        np.corrcoef(y_test, y_test_)[1, 0]))
+        print(str_train, str_test)
 e = time.time()
 print(e - s)
