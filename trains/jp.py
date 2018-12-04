@@ -22,8 +22,8 @@ data_jp = data_jp.drop(['Adj Close', 'Volume'], axis=1)
 data_vix = pd.read_csv(ROOT_PATH + '/data/vix.csv').dropna()
 data_vix = data_vix.drop(['Adj Close', 'Volume'], axis=1)
 
-data = pd.merge(data_hs, data_bp, on='Date', how='left')
-data = pd.merge(data, data_jp, on='Date', how='left')
+data = pd.merge(data_jp, data_bp, on='Date', how='left')
+data = pd.merge(data, data_hs, on='Date', how='left')
 data = pd.merge(data, data_vix, on='Date', how='left').sort_values(by='Date')
 data = data.drop('Date', axis=1)
 data = data.replace(0, None)
@@ -75,8 +75,7 @@ x = tf.reshape(x, shape=[batch_size, x.shape[1], x.shape[2]])
 '''
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 '''
-X = tf.tanh(x/2)
-y_=tf.tanh(y_/2)
+X=x
 # X = tf.layers.batch_normalization(x, training=True, scale=False, center=False, axis=[0, -1])
 
 gru = GRUCell(num_units=32, reuse=tf.AUTO_REUSE, activation=tf.nn.relu,

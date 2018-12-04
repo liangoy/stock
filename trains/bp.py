@@ -11,7 +11,7 @@ from config import ROOT_PATH
 dtype = tf.float32
 long = 20
 batch_size = 512
-otype = 1
+otype = 3
 
 data_bp = pd.read_csv(ROOT_PATH + '/data/bp.csv').dropna()
 data_bp = data_bp.drop(['Adj Close', 'Volume'], axis=1)
@@ -30,7 +30,6 @@ data = data.iloc[300:].replace(0, None)
 data = data.fillna(method='ffill')
 
 data = np.array(data)[1:]
-data = np.array(data)
 data_t = data[1:]
 data_t_1 = data[:-1] + 0.0000001
 
@@ -43,8 +42,8 @@ data = data_t - 1
 标准化
 '''
 for i in range(4):
-    data[:,i*4:i*4+4]=(data[:,i*4:i*4+4]-data[:,i*4:i*4+4].mean())/data[:,i*4:i*4+4].std()
-
+    data[:, i * 4:i * 4 + 4] = (data[:, i * 4:i * 4 + 4] - data[:, i * 4:i * 4 + 4].mean()) / data[:,
+                                                                                              i * 4:i * 4 + 4].std()
 
 data_x, data_y = [], []
 for i in range(len(data) - long):
@@ -53,11 +52,13 @@ for i in range(len(data) - long):
 
 data_x = np.array(data_x)
 data_y = np.array(data_y)
+data_y = (data_y - data_y.mean()) / data_y.std()
 data_train_x, data_train_y = data_x[:-batch_size], data_y[:-batch_size]
 data_test_x, data_test_y = data_x[-batch_size:], data_y[-batch_size:]
 
 train_dataset = tf.data.Dataset.from_tensor_slices(
-    (tf.constant(data_train_x, dtype=dtype), tf.constant(data_train_y, dtype=dtype))).repeat().batch(batch_size)
+    (tf.constant(data_train_x, dtype=dtype), tf.constant(data_train_y, dtype=dtype))).repeat().shuffle(10000).prefetch(
+    100000).batch(batch_size)
 test_dataset = tf.data.Dataset.from_tensor_slices(
     (tf.constant(data_test_x, dtype=dtype), tf.constant(data_test_y, dtype=dtype))).repeat().batch(batch_size)
 
@@ -73,9 +74,9 @@ x, y_ = iterator.get_next()
 x = tf.reshape(x, shape=[batch_size, x.shape[1], x.shape[2]])
 
 X = x
-#X = tf.layers.batch_normalization(x, training=True, scale=False, center=False, axis=[0, -1])
+# X = tf.layers.batch_normalization(x, training=True, scale=False, center=False, axis=[0, -1])
 
-gru = GRUCell(num_units=4, reuse=tf.AUTO_REUSE, activation=tf.nn.relu,
+gru = GRUCell(num_units=16, reuse=tf.AUTO_REUSE, activation=tf.nn.relu,
               kernel_initializer=tf.glorot_normal_initializer(), dtype=dtype)
 state = gru.zero_state(batch_size, dtype=dtype)
 with tf.variable_scope('RNN'):
@@ -93,7 +94,7 @@ loss = tf.cast(tf.reduce_mean((y - y_) * (y - y_)), dtype=dtype)
 
 update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 with tf.control_dependencies(update_ops):
-    optimizer = tf.train.AdamOptimizer(learning_rate=0.001).minimize(loss)
+    optimizer = tf.train.AdamOptimizer(learning_rate=0.0001).minimize(loss)
 
 sess = tf.Session()
 train_handle = sess.run(train_iterator.string_handle())
