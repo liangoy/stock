@@ -9,7 +9,7 @@ from tensorflow.contrib.rnn import GRUCell
 from config import ROOT_PATH
 
 dtype = tf.float32
-long = 30
+long = 20
 batch_size = 1024
 otype = 1
 
@@ -39,6 +39,13 @@ for i in range(15):
     data_t[:, i] /= data_t_1[:, i // 4 * 4 + 3]
 data = data_t - 1
 
+'''
+标准化
+'''
+for i in range(4):
+    data[:,i*4:i*4+4]=(data[:,i*4:i*4+4]-data[:,i*4:i*4+4].mean())/data[:,i*4:i*4+4].std()
+
+
 data_x, data_y = [], []
 for i in range(len(data) - long):
     data_x.append(data[i:i + long])
@@ -66,7 +73,7 @@ x, y_ = iterator.get_next()
 x = tf.reshape(x, shape=[batch_size, x.shape[1], x.shape[2]])
 
 X = x
-# X = tf.nn.tanh(tf.layers.batch_normalization(x, training=True, scale=False, center=False, axis=[0, -1]))
+#X = tf.layers.batch_normalization(x, training=True, scale=False, center=False, axis=[0, -1])
 
 gru = GRUCell(num_units=8, reuse=tf.AUTO_REUSE, activation=tf.nn.relu,
               kernel_initializer=tf.glorot_normal_initializer(), dtype=dtype)
@@ -86,7 +93,7 @@ loss = tf.cast(tf.reduce_mean((y - y_) * (y - y_)), dtype=dtype)
 
 update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 with tf.control_dependencies(update_ops):
-    optimizer = tf.train.AdamOptimizer(learning_rate=0.0005).minimize(loss)
+    optimizer = tf.train.AdamOptimizer(learning_rate=0.001).minimize(loss)
 
 sess = tf.Session()
 train_handle = sess.run(train_iterator.string_handle())

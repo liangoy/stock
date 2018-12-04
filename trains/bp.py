@@ -10,7 +10,7 @@ from config import ROOT_PATH
 
 dtype = tf.float32
 long = 20
-batch_size = 1024
+batch_size = 512
 otype = 1
 
 data_bp = pd.read_csv(ROOT_PATH + '/data/bp.csv').dropna()
@@ -39,6 +39,13 @@ for i in range(15):
     data_t[:, i] /= data_t_1[:, i // 4 * 4 + 3]
 data = data_t - 1
 
+'''
+标准化
+'''
+for i in range(4):
+    data[:,i*4:i*4+4]=(data[:,i*4:i*4+4]-data[:,i*4:i*4+4].mean())/data[:,i*4:i*4+4].std()
+
+
 data_x, data_y = [], []
 for i in range(len(data) - long):
     data_x.append(data[i:i + long])
@@ -66,9 +73,9 @@ x, y_ = iterator.get_next()
 x = tf.reshape(x, shape=[batch_size, x.shape[1], x.shape[2]])
 
 X = x
-# X = tf.layers.batch_normalization(x, training=True, scale=False, center=False, axis=[0, -1])
+#X = tf.layers.batch_normalization(x, training=True, scale=False, center=False, axis=[0, -1])
 
-gru = GRUCell(num_units=8, reuse=tf.AUTO_REUSE, activation=tf.nn.relu,
+gru = GRUCell(num_units=4, reuse=tf.AUTO_REUSE, activation=tf.nn.relu,
               kernel_initializer=tf.glorot_normal_initializer(), dtype=dtype)
 state = gru.zero_state(batch_size, dtype=dtype)
 with tf.variable_scope('RNN'):
