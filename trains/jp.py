@@ -48,7 +48,7 @@ for i in range(4):
 data_x, data_y = [], []
 for i in range(len(data) - long):
     data_x.append(data[i:i + long])
-    data_y.append(data[i + long, otype] - data[i + long, 0])
+    data_y.append(data[i + long, 1] - data[i + long, 2])
 
 data_x = np.array(data_x)
 data_y = np.array(data_y)
@@ -57,7 +57,8 @@ data_train_x, data_train_y = data_x[:-batch_size], data_y[:-batch_size]
 data_test_x, data_test_y = data_x[-batch_size:], data_y[-batch_size:]
 
 train_dataset = tf.data.Dataset.from_tensor_slices(
-    (tf.constant(data_train_x, dtype=dtype), tf.constant(data_train_y, dtype=dtype))).repeat().shuffle(100000).prefetch(100000).batch(batch_size)
+    (tf.constant(data_train_x, dtype=dtype), tf.constant(data_train_y, dtype=dtype))).repeat().shuffle(10000).prefetch(
+    100000).batch(batch_size)
 test_dataset = tf.data.Dataset.from_tensor_slices(
     (tf.constant(data_test_x, dtype=dtype), tf.constant(data_test_y, dtype=dtype))).repeat().batch(batch_size)
 
@@ -72,13 +73,10 @@ x, y_ = iterator.get_next()
 
 x = tf.reshape(x, shape=[batch_size, x.shape[1], x.shape[2]])
 
-'''
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-'''
-X=x
+X = x
 # X = tf.layers.batch_normalization(x, training=True, scale=False, center=False, axis=[0, -1])
 
-gru = GRUCell(num_units=32, reuse=tf.AUTO_REUSE, activation=tf.nn.relu,
+gru = GRUCell(num_units=16, reuse=tf.AUTO_REUSE, activation=tf.nn.relu,
               kernel_initializer=tf.glorot_normal_initializer(), dtype=dtype)
 state = gru.zero_state(batch_size, dtype=dtype)
 with tf.variable_scope('RNN'):
@@ -92,7 +90,7 @@ out = tf.nn.relu(out_put)
 
 y = tf.layers.dense(out, 1)[:, 0]
 
-loss = tf.cast(tf.reduce_mean((y-y_)**2), dtype=dtype)
+loss = tf.cast(tf.reduce_mean((y - y_) * (y - y_)), dtype=dtype)
 
 update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 with tf.control_dependencies(update_ops):
@@ -104,9 +102,6 @@ test_handle = sess.run(test_iterator.string_handle())
 sess.run(tf.global_variables_initializer())
 sess.run(test_iterator.initializer)
 
-import time
-
-s = time.time()
 for i in range(10 ** 10):
     sess.run(optimizer, feed_dict={handle: train_handle})
     if not i % 100:
@@ -116,6 +111,4 @@ for i in range(10 ** 10):
         loss_test, y_test, y_test_ = sess.run([loss, y, y_], feed_dict={handle: test_handle})
         str_test = str(('test:  ', loss_test, np.mean(np.abs(y_test - y_test_)) / np.mean(np.abs(y_test_)),
                         np.corrcoef(y_test, y_test_)[1, 0]))
-        print(str_train, str_test)
-e = time.time()
-print(e - s)
+        print(str_train, str_test, len([i for i in y_test if i > y_test[-2]]))

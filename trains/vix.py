@@ -48,7 +48,7 @@ for i in range(4):
 data_x, data_y = [], []
 for i in range(len(data) - long):
     data_x.append(data[i:i + long])
-    data_y.append(data[i + long, otype] - data[i + long, 0])
+    data_y.append(data[i + long, 1] - data[i + long, 2])
 
 data_x = np.array(data_x)
 data_y = np.array(data_y)
@@ -102,9 +102,6 @@ test_handle = sess.run(test_iterator.string_handle())
 sess.run(tf.global_variables_initializer())
 sess.run(test_iterator.initializer)
 
-import time
-
-s = time.time()
 for i in range(10 ** 10):
     sess.run(optimizer, feed_dict={handle: train_handle})
     if not i % 100:
@@ -114,6 +111,4 @@ for i in range(10 ** 10):
         loss_test, y_test, y_test_ = sess.run([loss, y, y_], feed_dict={handle: test_handle})
         str_test = str(('test:  ', loss_test, np.mean(np.abs(y_test - y_test_)) / np.mean(np.abs(y_test_)),
                         np.corrcoef(y_test, y_test_)[1, 0]))
-        print(str_train, str_test)
-e = time.time()
-print(e - s)
+        print(str_train, str_test, len([i for i in y_test if i > y_test[-2]]))
