@@ -51,6 +51,7 @@ for i in range(data.shape[1] - 1):
     data_t[:, i] /= data_t_1[:, i // 4 * 4 + 3]
 data = data_t - 1
 
+np.random.shuffle(data)
 '''
 标准化
 '''
@@ -66,7 +67,7 @@ shuffle!!!!
 data_x, data_y = [], []
 for i in range(len(data) - long):
     data_x.append(data[i:i + long])
-    data_y.append(data[i + long, 2])
+    data_y.append(data[i + long, 1]-data[i+long,2])
 
 data_x = np.array(data_x)
 data_y = np.array(data_y)
