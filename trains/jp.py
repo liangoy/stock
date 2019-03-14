@@ -7,24 +7,37 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.rnn import GRUCell
 from config import ROOT_PATH
+import pymongo
+import sys
 
+
+client = pymongo.MongoClient()
+col = client['stock']['stock2']
+name = 'bp_bp_bp_bp'
+name = 'bp_vix_shy_tlt'
 dtype = tf.float32
 long = 20
 batch_size = 512
 otype = 1
 
-data_bp = pd.read_csv(ROOT_PATH + '/data/bp.csv').dropna()
-data_bp = data_bp.drop(['Adj Close', 'Volume'], axis=1)
-data_hs = pd.read_csv(ROOT_PATH + '/data/hs.csv').dropna()
-data_hs = data_hs.drop(['Adj Close', 'Volume'], axis=1)
-data_jp = pd.read_csv(ROOT_PATH + '/data/jp.csv').dropna()
-data_jp = data_jp.drop(['Adj Close', 'Volume'], axis=1)
-data_vix = pd.read_csv(ROOT_PATH + '/data/vix.csv').dropna()
-data_vix = data_vix.drop(['Adj Close', 'Volume'], axis=1)
+data_dict = {i: pd.read_csv(ROOT_PATH + '/data/' + j + '.csv').dropna() for i, j in enumerate(name.split('_'))}
 
-data = pd.merge(data_jp, data_bp, on='Date', how='left')
-data = pd.merge(data, data_hs, on='Date', how='left')
-data = pd.merge(data, data_vix, on='Date', how='left').sort_values(by='Date')
+'''
+前复权
+'''
+for i in data_dict:
+    adj = data_dict[i]['Adj Close'] / data_dict[i]['Close']
+    data_dict[i]['Open'] *= adj
+    data_dict[i]['High'] *= adj
+    data_dict[i]['Low'] *= adj
+    data_dict[i]['Close'] *= adj
+    data_dict[i].drop(['Adj Close', 'Volume'], axis=1, inplace=True)
+
+data = data_dict[0]
+for i in range(1, len(data_dict)):
+    data = pd.merge(data, data_dict[i], on='Date', how='left')
+
+data = data.sort_values(by='Date')
 data = data.drop('Date', axis=1)
 data = data.replace(0, None)
 data = data.fillna(method='ffill')
@@ -34,21 +47,26 @@ data_t = data[1:]
 data_t_1 = data[:-1] + 0.0000001
 
 '''['Open_x', 'High_x', 'Low_x', 'Close_x', 'Open_y', 'High_y', 'Low_y','Close_y', 'Open_x', 'High_x', 'Low_x', 'Close_x', 'Open_y', 'High_y','Low_y', 'Close_y']'''
-for i in range(15):
+for i in range(data.shape[1] - 1):
     data_t[:, i] /= data_t_1[:, i // 4 * 4 + 3]
 data = data_t - 1
 
 '''
 标准化
 '''
-for i in range(4):
+for i in range(len(data_dict)):
     data[:, i * 4:i * 4 + 4] = (data[:, i * 4:i * 4 + 4] - data[:, i * 4:i * 4 + 4].mean()) / data[:,
                                                                                               i * 4:i * 4 + 4].std()
+'''
+shuffle!!!!
+'''
+# np.random.shuffle(data)
+
 
 data_x, data_y = [], []
 for i in range(len(data) - long):
     data_x.append(data[i:i + long])
-    data_y.append(data[i + long, 1] - data[i + long, 2])
+    data_y.append(data[i + long, 2])
 
 data_x = np.array(data_x)
 data_y = np.array(data_y)
@@ -71,32 +89,31 @@ test_iterator = test_dataset.make_initializable_iterator()
 
 x, y_ = iterator.get_next()
 
-x = tf.reshape(x, shape=[batch_size, x.shape[1], x.shape[2]])
+X = tf.reshape(x, shape=[batch_size, x.shape[1], x.shape[2]])
 
-X = x
 # X = tf.layers.batch_normalization(x, training=True, scale=False, center=False, axis=[0, -1])
 
-gru = GRUCell(num_units=16, reuse=tf.AUTO_REUSE, activation=tf.nn.relu,
-              kernel_initializer=tf.glorot_normal_initializer(), dtype=dtype)
-state = gru.zero_state(batch_size, dtype=dtype)
+lstm = tf.nn.rnn_cell.LSTMCell(num_units=128)
+state = lstm.zero_state(batch_size, dtype=dtype)
 with tf.variable_scope('RNN'):
     for timestep in range(long):
         if timestep == 1:
             tf.get_variable_scope().reuse_variables()
-        (cell_output, state) = gru(X[:, timestep], state)
-    out_put = state
+        (cell_output, state) = lstm(X[:, timestep], state)
 
-out = tf.nn.relu(out_put)
+out = tf.nn.relu(tf.layers.dense(cell_output, 8))
 
 y = tf.layers.dense(out, 1)[:, 0]
 
-loss = tf.cast(tf.reduce_mean((y - y_) * (y - y_)), dtype=dtype)
+loss = tf.reduce_mean((y - y_) * (y - y_))
 
 update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 with tf.control_dependencies(update_ops):
     optimizer = tf.train.AdamOptimizer(learning_rate=0.0001).minimize(loss)
 
-sess = tf.Session()
+sess_config = tf.ConfigProto()
+sess_config.gpu_options.allow_growth = True
+sess = tf.Session(config=sess_config)
 train_handle = sess.run(train_iterator.string_handle())
 test_handle = sess.run(test_iterator.string_handle())
 sess.run(tf.global_variables_initializer())
@@ -111,4 +128,5 @@ for i in range(10 ** 10):
         loss_test, y_test, y_test_ = sess.run([loss, y, y_], feed_dict={handle: test_handle})
         str_test = str(('test:  ', loss_test, np.mean(np.abs(y_test - y_test_)) / np.mean(np.abs(y_test_)),
                         np.corrcoef(y_test, y_test_)[1, 0]))
+
         print(str_train, str_test, len([i for i in y_test if i > y_test[-2]]))
