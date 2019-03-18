@@ -10,10 +10,9 @@ from config import ROOT_PATH
 import pymongo
 import sys
 
-
 client = pymongo.MongoClient()
 col = client['stock']['stock2']
-name = 'bp_bp_bp_bp'
+# name = 'bp_bp_bp_bp'
 name = 'bp_vix_shy_tlt'
 dtype = tf.float32
 long = 20
@@ -51,7 +50,6 @@ for i in range(data.shape[1] - 1):
     data_t[:, i] /= data_t_1[:, i // 4 * 4 + 3]
 data = data_t - 1
 
-np.random.shuffle(data)
 '''
 标准化
 '''
@@ -67,7 +65,7 @@ shuffle!!!!
 data_x, data_y = [], []
 for i in range(len(data) - long):
     data_x.append(data[i:i + long])
-    data_y.append(data[i + long, 1]-data[i+long,2])
+    data_y.append(data[i + long, 1] - data[i + long, 2])
 
 data_x = np.array(data_x)
 data_y = np.array(data_y)
@@ -94,13 +92,13 @@ X = tf.reshape(x, shape=[batch_size, x.shape[1], x.shape[2]])
 
 # X = tf.layers.batch_normalization(x, training=True, scale=False, center=False, axis=[0, -1])
 
-lstm = tf.nn.rnn_cell.LSTMCell(num_units=128)
-state = lstm.zero_state(batch_size, dtype=dtype)
+gru = tf.nn.rnn_cell.GRUCell(num_units=128)
+state = gru.zero_state(batch_size, dtype=dtype)
 with tf.variable_scope('RNN'):
     for timestep in range(long):
         if timestep == 1:
             tf.get_variable_scope().reuse_variables()
-        (cell_output, state) = lstm(X[:, timestep], state)
+        (cell_output, state) = gru(X[:, timestep], state)
 
 out = tf.nn.relu(tf.layers.dense(cell_output, 8))
 

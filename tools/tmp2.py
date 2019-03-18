@@ -11,7 +11,7 @@ import pymongo
 import sys
 
 client = pymongo.MongoClient()
-col = client['stock']['highlow']
+col = client['stock']['highlow2']
 name = sys.argv[1]  # eg "vix_vix_vix_vix_vix"
 
 dtype = tf.float32
@@ -92,17 +92,15 @@ X = tf.reshape(x, shape=[batch_size, x.shape[1], x.shape[2]])
 
 # X = tf.layers.batch_normalization(x, training=True, scale=False, center=False, axis=[0, -1])
 
-gru = GRUCell(num_units=128, reuse=tf.AUTO_REUSE, activation=tf.nn.relu,
-              kernel_initializer=tf.glorot_normal_initializer(), dtype=dtype)
+gru = tf.nn.rnn_cell.GRUCell(num_units=128)
 state = gru.zero_state(batch_size, dtype=dtype)
 with tf.variable_scope('RNN'):
     for timestep in range(long):
         if timestep == 1:
             tf.get_variable_scope().reuse_variables()
         (cell_output, state) = gru(X[:, timestep], state)
-    out_put = state
 
-out = tf.nn.relu(tf.layers.dense(out_put, 8))
+out = tf.nn.relu(tf.layers.dense(cell_output, 8))
 
 y = tf.layers.dense(out, 1)[:, 0]
 
@@ -110,7 +108,7 @@ loss = tf.reduce_mean((y - y_) * (y - y_))
 
 update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 with tf.control_dependencies(update_ops):
-    optimizer = tf.train.AdamOptimizer(learning_rate=0.0005).minimize(loss)
+    optimizer = tf.train.AdamOptimizer(learning_rate=0.0001).minimize(loss)
 
 sess_config = tf.ConfigProto()
 sess_config.gpu_options.allow_growth = True
